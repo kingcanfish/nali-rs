@@ -15,11 +15,11 @@ use std::net::IpAddr;
 #[command(name = "nali-rs")]
 #[command(
     version,
-    about = "一个查询IP地理信息和CDN提供商的离线终端工具 - Rust实现"
+    about = "An offline terminal tool for querying IP geolocation information and CDN providers - Rust implementation"
 )]
-#[command(long_about = "nali-rs 是 nali 的 Rust 实现版本\n\n\
-    支持从命令行参数、管道或交互模式查询 IP 地理位置和 CDN 提供商信息。\n\n\
-    示例:\n  \
+#[command(long_about = "nali-rs is the Rust implementation version of nali\n\n\
+    Supports querying IP geolocation and CDN provider information from command line arguments, pipes, or interactive mode.\n\n\
+    Examples:\n  \
     $ nali-rs 1.2.3.4\n  \
     $ echo \"Server IP: 8.8.8.8\" | nali-rs\n  \
     $ dig google.com | nali-rs\n  \
@@ -27,23 +27,23 @@ use std::net::IpAddr;
     $ nali-rs update\n  \
     $ nali-rs update qqwry")]
 pub struct Cli {
-    /// IP地址或域名列表（如果没有提供，则从标准输入读取）
+    /// List of IP addresses or domains (if not provided, read from standard input)
     #[arg(value_name = "QUERY")]
     pub queries: Vec<String>,
 
-    /// 输出JSON格式
+    /// Output in JSON format
     #[arg(short, long)]
     pub json: bool,
 
-    /// 使用GBK解码器（用于中文数据库）
+    /// Use GBK encoding format for output
     #[arg(short, long)]
     pub gbk: bool,
 
-    /// 显示详细信息
+    /// Show detailed information
     #[arg(short, long)]
     pub verbose: bool,
 
-    /// 更新数据库 (update [database_name])
+    /// Update database (update [database_name])
     #[arg(long)]
     pub update: bool,
 }
@@ -111,7 +111,7 @@ impl Cli {
         // Check if stdin is a TTY (interactive mode)
         if atty::is(atty::Stream::Stdin) {
             // Interactive mode
-            println!("nali-rs interactive mode (输入 quit 或 Ctrl+D 退出)");
+            println!("nali-rs interactive mode (enter quit or Ctrl+D to exit)");
 
             for line in stdin.lock().lines() {
                 let line = line?;
@@ -165,12 +165,11 @@ impl Cli {
         for entity in &mut entities.entities {
             match entity.entity_type {
                 EntityType::IPv4 | EntityType::IPv6 => {
-                    if let Some(ip) = entity.as_ip() {
-                        if let Ok(Some(geo)) = db_manager.query_ip(ip).await {
+                    if let Some(ip) = entity.as_ip()
+                        && let Ok(Some(geo)) = db_manager.query_ip(ip).await {
                             entity.geo_info = Some(geo);
                             entity.source = Some(config.database.ipv4_database.clone());
                         }
-                    }
                 }
                 EntityType::Domain => {
                     if let Ok(Some(cdn)) = db_manager.query_cdn(&entity.text).await {
@@ -187,7 +186,7 @@ impl Cli {
 
         // Format output
         if config.output.json {
-            formatter::format_json(&complete).map_err(|e| crate::error::NaliError::JsonError(e))
+            formatter::format_json(&complete).map_err(crate::error::NaliError::JsonError)
         } else {
             Ok(formatter::format_text(
                 &complete,

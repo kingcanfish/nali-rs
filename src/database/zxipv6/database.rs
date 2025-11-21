@@ -181,7 +181,7 @@ impl Database for ZXIPv6Database {
 
         // Open and memory map the file
         let file = File::open(file_path)
-            .map_err(|e| crate::error::NaliError::IoError(e))?;
+            .map_err(crate::error::NaliError::IoError)?;
 
         let mmap = unsafe { Mmap::map(&file) }
             .map_err(|e| crate::error::NaliError::parse(format!("Failed to memory map ZX IPv6 database: {}", e)))?;

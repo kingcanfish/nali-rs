@@ -54,7 +54,7 @@ impl Downloader {
         // Create parent directory if it doesn't exist
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent)
-                .map_err(|e| NaliError::IoError(e))?;
+                .map_err(NaliError::IoError)?;
         }
 
         // Start download
@@ -83,7 +83,7 @@ impl Downloader {
                     .unwrap()
                     .progress_chars("#>-"),
             );
-            pb.set_message(format!("Downloading {}", url.split('/').last().unwrap_or("database")));
+            pb.set_message(format!("Downloading {}", url.split('/').next_back().unwrap_or("database")));
             Some(pb)
         } else {
             None
@@ -91,7 +91,7 @@ impl Downloader {
 
         // Download and write to file
         let mut file = File::create(dest)
-            .map_err(|e| NaliError::IoError(e))?;
+            .map_err(NaliError::IoError)?;
 
         let mut stream = response.bytes_stream();
         let mut downloaded: u64 = 0;
@@ -101,7 +101,7 @@ impl Downloader {
                 .map_err(|e| NaliError::NetworkError(format!("Failed to read chunk: {}", e)))?;
 
             file.write_all(&chunk)
-                .map_err(|e| NaliError::IoError(e))?;
+                .map_err(NaliError::IoError)?;
 
             downloaded += chunk.len() as u64;
             if let Some(ref pb) = pb {
@@ -225,7 +225,7 @@ impl Downloader {
         // Create parent directory if needed
         if let Some(parent) = dest_path.parent() {
             std::fs::create_dir_all(parent)
-                .map_err(|e| NaliError::IoError(e))?;
+                .map_err(NaliError::IoError)?;
         }
 
         // Write merged data to file
@@ -233,7 +233,7 @@ impl Downloader {
             .map_err(|e| NaliError::YamlError(format!("Failed to serialize CDN data: {}", e)))?;
 
         std::fs::write(dest_path, yaml_content)
-            .map_err(|e| NaliError::IoError(e))?;
+            .map_err(NaliError::IoError)?;
 
         println!("✓ Successfully downloaded and merged CDN database");
         Ok(())
@@ -290,11 +290,11 @@ impl Downloader {
         // Move the extracted file to destination
         if let Some(parent) = dest_path.parent() {
             std::fs::create_dir_all(parent)
-                .map_err(|e| NaliError::IoError(e))?;
+                .map_err(NaliError::IoError)?;
         }
 
         std::fs::copy(&extracted_file, dest_path)
-            .map_err(|e| NaliError::IoError(e))?;
+            .map_err(NaliError::IoError)?;
 
         // Clean up temp directory
         let _ = std::fs::remove_dir_all(&temp_extract_dir);
@@ -374,21 +374,19 @@ impl Default for Downloader {
 
 /// Recursively find a file by name in a directory
 fn find_file_recursive(dir: &Path, filename: &str) -> Result<PathBuf> {
-    for entry in std::fs::read_dir(dir).map_err(|e| NaliError::IoError(e))? {
-        let entry = entry.map_err(|e| NaliError::IoError(e))?;
+    for entry in std::fs::read_dir(dir).map_err(NaliError::IoError)? {
+        let entry = entry.map_err(NaliError::IoError)?;
         let path = entry.path();
 
         if path.is_file() {
-            if let Some(name) = path.file_name() {
-                if name == filename {
+            if let Some(name) = path.file_name()
+                && name == filename {
                     return Ok(path);
                 }
-            }
-        } else if path.is_dir() {
-            if let Ok(found) = find_file_recursive(&path, filename) {
+        } else if path.is_dir()
+            && let Ok(found) = find_file_recursive(&path, filename) {
                 return Ok(found);
             }
-        }
     }
 
     Err(NaliError::parse(format!("File not found: {}", filename)))

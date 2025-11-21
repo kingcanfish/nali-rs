@@ -9,6 +9,12 @@ pub struct IP2LocationDatabase {
     loaded: bool,
 }
 
+impl Default for IP2LocationDatabase {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IP2LocationDatabase {
     pub fn new() -> Self {
         Self {

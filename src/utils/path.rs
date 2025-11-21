@@ -26,7 +26,7 @@ pub fn config_dir() -> Result<PathBuf> {
         return Ok(config_dir.join("nali-rs"));
     }
 
-    Err(NaliError::config("无法确定配置目录"))
+    Err(NaliError::config("Unable to determine config directory"))
 }
 
 /// Get the nali data directory for databases
@@ -49,7 +49,7 @@ pub fn data_dir() -> Result<PathBuf> {
         return Ok(data_dir.join("nali-rs"));
     }
 
-    Err(NaliError::config("无法确定数据目录"))
+    Err(NaliError::config("Unable to determine data directory"))
 }
 
 /// Get the path to the config file
@@ -66,7 +66,7 @@ pub fn database_file(name: &str) -> Result<PathBuf> {
 pub fn ensure_dir(path: &Path) -> Result<()> {
     if !path.exists() {
         std::fs::create_dir_all(path)
-            .map_err(|e| NaliError::config(format!("创建目录失败: {}", e)))?;
+            .map_err(|e| NaliError::config(format!("Failed to create directory: {}", e)))?;
     }
     Ok(())
 }
@@ -80,11 +80,10 @@ pub fn ensure_nali_dirs() -> Result<()> {
 
 /// Expand tilde (~) in path
 pub fn expand_tilde(path: &str) -> PathBuf {
-    if path.starts_with("~/") {
-        if let Some(home) = dirs::home_dir() {
+    if path.starts_with("~/")
+        && let Some(home) = dirs::home_dir() {
             return home.join(&path[2..]);
         }
-    }
     PathBuf::from(path)
 }
 

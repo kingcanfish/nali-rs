@@ -34,7 +34,7 @@ impl CDNDatabase {
     fn parse_yaml(&mut self, content: &str) -> Result<()> {
         // Parse YAML as HashMap
         let data: HashMap<String, CdnEntry> = serde_yaml::from_str(content)
-            .map_err(|e| NaliError::YamlError(format!("解析CDN数据库失败: {}", e)))?;
+            .map_err(|e| NaliError::YamlError(format!("Failed to parse CDN database: {}", e)))?;
 
         for (pattern, entry) in data {
             // Check if pattern is a wildcard or regex
@@ -44,14 +44,21 @@ impl CDNDatabase {
                 match Regex::new(&regex_pattern) {
                     Ok(regex) => {
                         self.regex_matches.push((regex, entry));
-                        log::debug!("Added CDN wildcard pattern: {} -> {}", pattern, regex_pattern);
+                        log::debug!(
+                            "Added CDN wildcard pattern: {} -> {}",
+                            pattern,
+                            regex_pattern
+                        );
                     }
                     Err(e) => {
                         log::warn!("Invalid CDN wildcard pattern '{}': {}", pattern, e);
                     }
                 }
-            } else if pattern.contains('[') || pattern.contains('+')
-                || pattern.contains('(') || pattern.contains('{') {
+            } else if pattern.contains('[')
+                || pattern.contains('+')
+                || pattern.contains('(')
+                || pattern.contains('{')
+            {
                 // Treat as regex pattern directly
                 match Regex::new(&pattern) {
                     Ok(regex) => {
@@ -147,8 +154,7 @@ impl Database for CDNDatabase {
     fn load_from_file(&mut self, file_path: &str) -> Result<()> {
         log::info!("Loading CDN database from: {}", file_path);
 
-        let content = fs::read_to_string(file_path)
-            .map_err(|e| NaliError::IoError(e))?;
+        let content = fs::read_to_string(file_path).map_err(NaliError::IoError)?;
 
         self.parse_yaml(&content)?;
 

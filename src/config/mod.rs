@@ -12,6 +12,7 @@ use std::path::PathBuf;
 
 /// Application configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AppConfig {
     pub database: DatabaseConfig,
     pub output: OutputConfig,
@@ -80,6 +81,7 @@ pub struct OutputConfig {
 
 /// Global configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct GlobalConfig {
     /// Verbose logging
     #[serde(default)]
@@ -115,15 +117,6 @@ fn default_true() -> bool {
     true
 }
 
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            database: DatabaseConfig::default(),
-            output: OutputConfig::default(),
-            global: GlobalConfig::default(),
-        }
-    }
-}
 
 impl Default for DatabaseConfig {
     fn default() -> Self {
@@ -187,15 +180,6 @@ impl Default for OutputConfig {
     }
 }
 
-impl Default for GlobalConfig {
-    fn default() -> Self {
-        Self {
-            verbose: false,
-            config_path: None,
-            work_dir: None,
-        }
-    }
-}
 
 impl AppConfig {
     /// Load configuration from file and environment variables
@@ -244,9 +228,10 @@ impl AppConfig {
     /// Save configuration to file
     pub fn save(&self, path: &PathBuf) -> Result<()> {
         let yaml = serde_yaml::to_string(self)
-            .map_err(|e| NaliError::YamlError(format!("序列化配置失败: {}", e)))?;
+            .map_err(|e| NaliError::YamlError(format!("Failed to serialize config: {}", e)))?;
 
-        fs::write(path, yaml).map_err(|e| NaliError::config(format!("写入配置文件失败: {}", e)))?;
+        fs::write(path, yaml)
+            .map_err(|e| NaliError::config(format!("Failed to write config file: {}", e)))?;
 
         Ok(())
     }

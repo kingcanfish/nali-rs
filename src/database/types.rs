@@ -29,12 +29,12 @@ pub struct CdnProvider {
 /// Database type enumeration
 #[derive(Debug, Clone)]
 pub enum DatabaseType {
-    QQwry,       // 纯真IPv4数据库
-    ZXIPv6Wry,   // ZX IPv6数据库
-    GeoIP2,      // GeoIP2数据库
-    IPIP,        // IPIP数据库
-    IP2Region,   // ip2region数据库
-    DBIP,        // DB-IP数据库
-    IP2Location, // IP2Location数据库
-    CDN,         // CDN数据库
+    QQwry,       // QQwry IPv4 database
+    ZXIPv6Wry,   // ZX IPv6 database
+    GeoIP2,      // GeoIP2 database
+    IPIP,        // IPIP database
+    IP2Region,   // ip2region database
+    DBIP,        // DB-IP database
+    IP2Location, // IP2Location database
+    CDN,         // CDN database
 }

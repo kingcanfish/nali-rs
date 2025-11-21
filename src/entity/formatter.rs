@@ -55,8 +55,8 @@ pub fn format_text(entities: &Entities, use_color: bool) -> String {
         result.push_str(&entity.text);
 
         // Add geolocation info for IP entities
-        if entity.has_geo_info() {
-            if let Some(ref geo) = entity.geo_info {
+        if entity.has_geo_info()
+            && let Some(ref geo) = entity.geo_info {
                 let info = format_geo_info(geo);
                 #[cfg(feature = "colored-output")]
                 let formatted = apply_color(&info, use_color, ColorType::Green);
@@ -65,12 +65,11 @@ pub fn format_text(entities: &Entities, use_color: bool) -> String {
 
                 result.push_str(&format!(" [{}] ", formatted));
             }
-        }
 
         // Add CDN info for domain entities
-        if entity.has_cdn_info() {
-            if let Some(ref cdn) = entity.cdn_info {
-                let info = format!("{}", cdn.provider);
+        if entity.has_cdn_info()
+            && let Some(ref cdn) = entity.cdn_info {
+                let info = cdn.provider.to_string();
                 #[cfg(feature = "colored-output")]
                 let formatted = apply_color(&info, use_color, ColorType::Cyan);
                 #[cfg(not(feature = "colored-output"))]
@@ -78,7 +77,6 @@ pub fn format_text(entities: &Entities, use_color: bool) -> String {
 
                 result.push_str(&format!(" [{}] ", formatted));
             }
-        }
     }
 
     result
@@ -93,17 +91,15 @@ fn format_geo_info(geo: &crate::database::GeoLocation) -> String {
     }
 
     // Use filter to avoid duplicate checking
-    if let Some(ref region) = geo.region {
-        if !geo.country.as_ref().is_some_and(|c| c == region) {
+    if let Some(ref region) = geo.region
+        && geo.country.as_ref().is_none_or(|c| c != region) {
             parts.push(region.as_str());
         }
-    }
 
-    if let Some(ref city) = geo.city {
-        if !geo.region.as_ref().is_some_and(|r| r == city) {
+    if let Some(ref city) = geo.city
+        && geo.region.as_ref().is_none_or(|r| r != city) {
             parts.push(city.as_str());
         }
-    }
 
     if let Some(ref isp) = geo.isp {
         parts.push(isp.as_str());

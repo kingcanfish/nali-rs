@@ -33,13 +33,22 @@ impl IPIPTranslationTables {
                 }
 
                 // Basic categorization logic - in production would be more sophisticated
-                if line.contains("国家") || line.contains("China") || line.contains("United States") {
+                if line.contains("Country")
+                    || line.contains("China")
+                    || line.contains("United States")
+                {
                     countries.push(line.to_string());
-                } else if line.contains("省") || line.contains("州") || line.contains("Province") {
+                } else if line.contains("Province")
+                    || line.contains("State")
+                    || line.contains("Province")
+                {
                     regions.push(line.to_string());
                 } else if line.contains("市") || line.contains("City") {
                     cities.push(line.to_string());
-                } else if line.contains("电信") || line.contains("运营商") || line.contains("ISP") {
+                } else if line.contains("Telecom")
+                    || line.contains("Carrier")
+                    || line.contains("ISP")
+                {
                     isps.push(line.to_string());
                 }
             }
@@ -84,7 +93,7 @@ impl IPIPTranslationTables {
                     "Unknown".to_string()
                 }
             }
-            _ => "Unknown".to_string()
+            _ => "Unknown".to_string(),
         }
     }
 }

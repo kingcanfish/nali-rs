@@ -9,6 +9,12 @@ pub struct IP2RegionDatabase {
     loaded: bool,
 }
 
+impl Default for IP2RegionDatabase {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IP2RegionDatabase {
     pub fn new() -> Self {
         Self {

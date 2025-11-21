@@ -15,4 +15,3 @@ mod matcher;
 
 // Re-export the main database struct and entry type
 pub use database::CDNDatabase;
-pub use entry::CdnEntry;

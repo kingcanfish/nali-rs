@@ -3,10 +3,10 @@ name = "nali-rs"
 version = "0.0.1"
 edition = "2024"
 authors = ["kingcanfish"]
-description = "一个查询IP地理信息和CDN提供商的离线终端工具 - Rust实现"
+description = "An offline terminal tool for querying IP geolocation information and CDN providers - Rust implementation"
 license = "MIT"
-repository = "https://github.com/zu1k/nali"
-homepage = "https://github.com/zu1k/nali"
+repository = "https://github.com/kingcanfish/nali-rs"
+homepage = "https://github.com/kingcanfish/nali-rs"
 keywords = ["ip", "geolocation", "cdn", "cli", "offline"]
 categories = ["network-programming", "command-line-utilities"]
 

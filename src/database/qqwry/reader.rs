@@ -80,18 +80,18 @@ impl<'a> Reader<'a> {
         let mode = self.read_mode();
         match mode {
             REDIRECT_MODE_1 => {
-                // Mode 1: [IP][0x01][绝对偏移地址] - 完全重定向
+                // Mode 1: [IP][0x01][absolute offset] - complete redirect
                 self.read_offset(true);
                 self.parse(0)
             }
             REDIRECT_MODE_2 => {
-                // Mode 2: [IP][0x02][国家信息的绝对偏移][地区信息]
+                // Mode 2: [IP][0x02][country info absolute offset][area info]
                 let country = self.parse_redirect_mode2();
                 let area = self.read_area();
                 (country, area)
             }
             _ => {
-                // 直接存储：[IP][国家][地区]
+                // Direct storage: [IP][country][area]
                 self.seek_back();
                 let country = self.read_string(true);
                 let area = self.read_area();

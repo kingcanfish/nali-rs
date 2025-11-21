@@ -53,8 +53,8 @@ impl IPIPDatabase {
 
     /// Binary search for IPv4 address in database
     fn lookup_ip_internal_v4(&self, ip: u32) -> Result<Option<GeoLocation>> {
-        if let Some(ref header) = self.header {
-            if let Some(ref mmap) = self.mmap {
+        if let Some(ref header) = self.header
+            && let Some(ref mmap) = self.mmap {
                 let mut low = header.index_start;
                 let mut high = header.index_end;
 
@@ -97,7 +97,6 @@ impl IPIPDatabase {
                     }
                 }
             }
-        }
 
         Ok(None)
     }

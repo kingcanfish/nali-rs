@@ -9,6 +9,12 @@ pub struct DBIPDatabase {
     loaded: bool,
 }
 
+impl Default for DBIPDatabase {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DBIPDatabase {
     pub fn new() -> Self {
         Self {

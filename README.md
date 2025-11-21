@@ -104,28 +104,97 @@ $ nali-rs --json 8.8.8.8
 
 ## Configuration
 
-Configuration file location:
-- Linux/macOS: `~/.config/nali/config.yaml`
-- Windows: `%APPDATA%\nali\config.yaml`
+### Configuration File Location
 
-Example:
+Configuration files are searched in the following priority order:
+1. Directory specified by `NALI_CONFIG_HOME` environment variable
+2. Directory specified by `NALI_HOME` environment variable
+3. Linux/macOS: `~/.config/nali-rs/config.yaml`
+4. Linux/macOS (XDG): `$XDG_CONFIG_HOME/nali-rs/config.yaml`
+5. Windows: `%APPDATA%\nali-rs\config.yaml`
+
+### Database File Location
+
+Database files are searched in the following priority order:
+1. Paths specified in `database_paths` configuration
+2. Directory specified by `NALI_DB_HOME` environment variable
+3. Directory specified by `NALI_HOME` environment variable
+4. Linux/macOS: `~/.local/share/nali-rs/`
+5. Linux/macOS (XDG): `$XDG_DATA_HOME/nali-rs/`
+6. Windows: `%APPDATA%\nali-rs\`
+
+### Configuration Format
 
 ```yaml
-language: "en-US"
+# Database configuration
+database:
+  # Selected databases
+  ipv4_database: "qqwry"
+  ipv6_database: "zxipv6wry"
+  cdn_database: "cdn"
+  
+  # Language for output
+  language: "zh-CN"
+  
+  # Custom database file paths (overrides default locations)
+  database_paths:
+    qqwry: "/custom/path/qqwry.dat"
+    zxipv6wry: "/custom/path/zxipv6wry.db"
+  
+  # Database definitions with download information
+  databases:
+    - name: "qqwry"
+      name_alias: ["chunzhen"]
+      format: "qqwry"
+      file: "qqwry.dat"
+      languages: ["zh-CN"]
+      types: ["IPv4"]
+      download_urls:
+        - "https://github.com/metowolf/qqwry.dat/releases/latest/download/qqwry.dat"
+    
+    - name: "zxipv6wry"
+      name_alias: ["zxipv6"]
+      format: "ipdb"
+      file: "zxipv6wry.db"
+      languages: ["zh-CN"]
+      types: ["IPv6"]
+      download_urls:
+        - "https://ip.zxinc.org/ip.7z"
+    
+    - name: "cdn"
+      format: "yaml"
+      file: "cdn.yml"
+      languages: ["zh-CN"]
+      types: ["CDN"]
+      download_urls:
+        - "https://cdn.jsdelivr.net/gh/4ft35t/cdn/src/cdn.yml"
 
-databases:
-  qqwry:
-    enabled: true
-    path: "~/.local/share/nali/qqwry.dat"
+# Output configuration
+output:
+  enable_colors: true
+  json: false
+  use_gbk: false
 
-  zxipv6:
-    enabled: true
-    path: "~/.local/share/nali/zxipv6wry.db"
-
-  cdn:
-    enabled: true
-    path: "~/.local/share/nali/cdn.yaml"
+# Global configuration
+global:
+  verbose: false
 ```
+
+### Environment Variables
+
+The following environment variables can override configuration:
+
+- `NALI_CONFIG_HOME`: Custom configuration file directory
+- `NALI_DB_HOME`: Custom database file directory
+- `NALI_HOME`: Custom configuration and database directory
+- `NALI_DB_IP4`: Override IPv4 database name
+- `NALI_DB_IP6`: Override IPv6 database name
+- `NALI_DB_CDN`: Override CDN database name
+- `NALI_LANG`: Override output language
+
+### Auto-Generation
+
+On first run, if no configuration file exists, nali-rs will automatically generate a default configuration file containing information for all supported databases.
 
 ## Development
 
@@ -163,10 +232,7 @@ src/
 
 ## Performance
 
-Compared to the Go version:
-- **Memory Usage**: ~40% lower
-- **Query Speed**: ~2x faster for cached lookups
-- **Startup Time**: ~50% faster
+not tested
 
 ## Contributing
 
@@ -187,5 +253,3 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - QQwry Database: [cz88.net](http://www.cz88.net/)
 
 ---
-
-Made with ❤️ using Rust

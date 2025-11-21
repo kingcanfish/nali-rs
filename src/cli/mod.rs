@@ -5,7 +5,7 @@
 use crate::config::AppConfig;
 use crate::database::DatabaseManager;
 use crate::download::Downloader;
-use crate::entity::{parser, formatter, EntityType};
+use crate::entity::{EntityType, formatter, parser};
 use crate::error::Result;
 use clap::Parser;
 use std::io::{self, BufRead, Write};
@@ -13,7 +13,10 @@ use std::net::IpAddr;
 
 #[derive(Parser, Debug)]
 #[command(name = "nali-rs")]
-#[command(version, about = "一个查询IP地理信息和CDN提供商的离线终端工具 - Rust实现")]
+#[command(
+    version,
+    about = "一个查询IP地理信息和CDN提供商的离线终端工具 - Rust实现"
+)]
 #[command(long_about = "nali-rs 是 nali 的 Rust 实现版本\n\n\
     支持从命令行参数、管道或交互模式查询 IP 地理位置和 CDN 提供商信息。\n\n\
     示例:\n  \
@@ -71,14 +74,19 @@ impl Cli {
             self.process_queries_from_args(&db_manager, &config).await?;
         } else {
             // Query from stdin (pipe mode or interactive mode)
-            self.process_queries_from_stdin(&db_manager, &config).await?;
+            self.process_queries_from_stdin(&db_manager, &config)
+                .await?;
         }
 
         Ok(())
     }
 
     /// Process queries from command line arguments
-    async fn process_queries_from_args(&self, db_manager: &DatabaseManager, config: &AppConfig) -> Result<()> {
+    async fn process_queries_from_args(
+        &self,
+        db_manager: &DatabaseManager,
+        config: &AppConfig,
+    ) -> Result<()> {
         for query in &self.queries {
             // Try to parse as IP address
             if let Ok(ip) = query.parse::<IpAddr>() {
@@ -92,7 +100,11 @@ impl Cli {
     }
 
     /// Process queries from stdin (pipe or interactive mode)
-    async fn process_queries_from_stdin(&self, db_manager: &DatabaseManager, config: &AppConfig) -> Result<()> {
+    async fn process_queries_from_stdin(
+        &self,
+        db_manager: &DatabaseManager,
+        config: &AppConfig,
+    ) -> Result<()> {
         let stdin = io::stdin();
         let mut stdout = io::stdout();
 
@@ -129,8 +141,10 @@ impl Cli {
             for line in buffer.lines() {
                 // Re-add the newline that lines() strips
                 let line_with_newline = format!("{}\n", line);
-                let result = self.process_line(&line_with_newline, db_manager, config).await?;
-                print!("{}", result);  // Use print! not println! since line already has \n
+                let result = self
+                    .process_line(&line_with_newline, db_manager, config)
+                    .await?;
+                print!("{}", result); // Use print! not println! since line already has \n
             }
         }
 
@@ -138,7 +152,12 @@ impl Cli {
     }
 
     /// Process a single line of text
-    async fn process_line(&self, line: &str, db_manager: &DatabaseManager, config: &AppConfig) -> Result<String> {
+    async fn process_line(
+        &self,
+        line: &str,
+        db_manager: &DatabaseManager,
+        config: &AppConfig,
+    ) -> Result<String> {
         // Parse entities from the line
         let mut entities = parser::parse_line(line);
 
@@ -168,15 +187,22 @@ impl Cli {
 
         // Format output
         if config.output.json {
-            formatter::format_json(&complete)
-                .map_err(|e| crate::error::NaliError::JsonError(e))
+            formatter::format_json(&complete).map_err(|e| crate::error::NaliError::JsonError(e))
         } else {
-            Ok(formatter::format_text(&complete, config.output.enable_colors))
+            Ok(formatter::format_text(
+                &complete,
+                config.output.enable_colors,
+            ))
         }
     }
 
     /// Query and print a single IP
-    async fn query_and_print_ip(&self, ip: IpAddr, db_manager: &DatabaseManager, config: &AppConfig) -> Result<()> {
+    async fn query_and_print_ip(
+        &self,
+        ip: IpAddr,
+        db_manager: &DatabaseManager,
+        config: &AppConfig,
+    ) -> Result<()> {
         match db_manager.query_ip(ip).await {
             Ok(Some(geo)) => {
                 if config.output.json {
@@ -198,7 +224,12 @@ impl Cli {
     }
 
     /// Query and print text (may contain IPs and domains)
-    async fn query_and_print_text(&self, text: &str, db_manager: &DatabaseManager, config: &AppConfig) -> Result<()> {
+    async fn query_and_print_text(
+        &self,
+        text: &str,
+        db_manager: &DatabaseManager,
+        config: &AppConfig,
+    ) -> Result<()> {
         let result = self.process_line(text, db_manager, config).await?;
         println!("{}", result);
         Ok(())
@@ -216,7 +247,7 @@ impl Cli {
             // Update specific databases
             for db_name in &self.queries {
                 match downloader.update_database(config, db_name).await {
-                    Ok(_) => {},
+                    Ok(_) => {}
                     Err(e) => {
                         eprintln!("✗ Failed to update {}: {}", db_name, e);
                     }

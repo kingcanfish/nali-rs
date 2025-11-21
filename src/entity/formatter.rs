@@ -18,6 +18,34 @@ pub enum OutputFormat {
     Colored,
 }
 
+/// Color type for formatted output
+#[cfg(feature = "colored-output")]
+#[derive(Debug, Clone, Copy)]
+enum ColorType {
+    Green,
+    Cyan,
+}
+
+/// Apply color to text if enabled
+fn apply_color(text: &str, use_color: bool, color_type: ColorType) -> String {
+    if !use_color {
+        return text.to_string();
+    }
+
+    #[cfg(feature = "colored-output")]
+    {
+        match color_type {
+            ColorType::Green => text.green().to_string(),
+            ColorType::Cyan => text.cyan().to_string(),
+        }
+    }
+
+    #[cfg(not(feature = "colored-output"))]
+    {
+        text.to_string()
+    }
+}
+
 /// Format entities as text with inline geolocation information
 pub fn format_text(entities: &Entities, use_color: bool) -> String {
     let mut result = String::new();
@@ -30,18 +58,12 @@ pub fn format_text(entities: &Entities, use_color: bool) -> String {
         if entity.has_geo_info() {
             if let Some(ref geo) = entity.geo_info {
                 let info = format_geo_info(geo);
-                if use_color {
-                    #[cfg(feature = "colored-output")]
-                    {
-                        result.push_str(&format!(" [{}] ", info.green()));
-                    }
-                    #[cfg(not(feature = "colored-output"))]
-                    {
-                        result.push_str(&format!(" [{}] ", info));
-                    }
-                } else {
-                    result.push_str(&format!(" [{}] ", info));
-                }
+                #[cfg(feature = "colored-output")]
+                let formatted = apply_color(&info, use_color, ColorType::Green);
+                #[cfg(not(feature = "colored-output"))]
+                let formatted = info.clone();
+
+                result.push_str(&format!(" [{}] ", formatted));
             }
         }
 
@@ -49,18 +71,12 @@ pub fn format_text(entities: &Entities, use_color: bool) -> String {
         if entity.has_cdn_info() {
             if let Some(ref cdn) = entity.cdn_info {
                 let info = format!("{}", cdn.provider);
-                if use_color {
-                    #[cfg(feature = "colored-output")]
-                    {
-                        result.push_str(&format!(" [{}] ", info.cyan()));
-                    }
-                    #[cfg(not(feature = "colored-output"))]
-                    {
-                        result.push_str(&format!(" [{}] ", info));
-                    }
-                } else {
-                    result.push_str(&format!(" [{}] ", info));
-                }
+                #[cfg(feature = "colored-output")]
+                let formatted = apply_color(&info, use_color, ColorType::Cyan);
+                #[cfg(not(feature = "colored-output"))]
+                let formatted = info.clone();
+
+                result.push_str(&format!(" [{}] ", formatted));
             }
         }
     }
@@ -70,29 +86,40 @@ pub fn format_text(entities: &Entities, use_color: bool) -> String {
 
 /// Format geolocation information as a compact string
 fn format_geo_info(geo: &crate::database::GeoLocation) -> String {
-    let mut parts = Vec::new();
+    let mut parts = Vec::with_capacity(4);
 
     if let Some(ref country) = geo.country {
-        parts.push(country.clone());
+        parts.push(country.as_str());
     }
 
+    // Use filter to avoid duplicate checking
     if let Some(ref region) = geo.region {
-        if region != geo.country.as_ref().unwrap_or(&String::new()) {
-            parts.push(region.clone());
+        if !geo.country.as_ref().is_some_and(|c| c == region) {
+            parts.push(region.as_str());
         }
     }
 
     if let Some(ref city) = geo.city {
-        if city != geo.region.as_ref().unwrap_or(&String::new()) {
-            parts.push(city.clone());
+        if !geo.region.as_ref().is_some_and(|r| r == city) {
+            parts.push(city.as_str());
         }
     }
 
     if let Some(ref isp) = geo.isp {
-        parts.push(isp.clone());
+        parts.push(isp.as_str());
     }
 
     parts.join(" ")
+}
+
+/// Format geolocation information as a compact string (public API)
+pub fn format_geo_info_compact(geo: &crate::database::GeoLocation) -> String {
+    let result = format_geo_info(geo);
+    if result.is_empty() {
+        "[Unknown]".to_string()
+    } else {
+        result
+    }
 }
 
 /// Format entities as JSON

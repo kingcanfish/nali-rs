@@ -11,7 +11,14 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use sevenz_rust::decompress_file;
 
+// Constants
+const DEFAULT_TIMEOUT_SECS: u64 = 300;
+const DOWNLOAD_BUFFER_SIZE: usize = 8192;
+
 /// Database downloader
+///
+/// Handles downloading database files from remote URLs with progress tracking,
+/// automatic retries, and support for compressed archives (7z).
 pub struct Downloader {
     client: reqwest::Client,
 }
@@ -20,8 +27,8 @@ impl Downloader {
     /// Create a new downloader
     pub fn new() -> Result<Self> {
         let client = reqwest::Client::builder()
-            .user_agent("nali-rs/0.1.0")
-            .timeout(std::time::Duration::from_secs(300))
+            .user_agent(format!("nali-rs/{}", env!("CARGO_PKG_VERSION")))
+            .timeout(std::time::Duration::from_secs(DEFAULT_TIMEOUT_SECS))
             .build()
             .map_err(|e| NaliError::NetworkError(format!("Failed to create HTTP client: {}", e)))?;
 
@@ -29,6 +36,17 @@ impl Downloader {
     }
 
     /// Download a file from URL to destination path
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The URL to download from
+    /// * `dest` - The destination file path
+    /// * `show_progress` - Whether to display a progress bar
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - Download completed successfully
+    /// * `Err(NaliError)` - Download failed
     pub async fn download_file(&self, url: &str, dest: &Path, show_progress: bool) -> Result<()> {
         log::info!("Downloading from: {}", url);
         log::info!("Saving to: {:?}", dest);
@@ -124,40 +142,10 @@ impl Downloader {
         // Try each download URL until one succeeds
         let mut last_error = None;
         for url in &db_info.download_urls {
-            // Check if URL is for a 7z file
-            let is_7z = url.ends_with(".7z");
-
-            // Download to temp file if 7z, otherwise direct to destination
-            let download_path = if is_7z {
-                let temp_dir = std::env::temp_dir();
-                temp_dir.join(format!("{}.7z", db_name))
-            } else {
-                dest_path.clone()
-            };
-
-            match self.download_file(url, &download_path, true).await {
+            match self.try_download_and_extract(url, &dest_path, db_name).await {
                 Ok(_) => {
-                    // Extract if 7z
-                    if is_7z {
-                        println!("Extracting 7z archive...");
-                        match self.extract_7z(&download_path, &dest_path, db_name).await {
-                            Ok(_) => {
-                                // Clean up temp file
-                                let _ = std::fs::remove_file(&download_path);
-                                println!("✓ Successfully downloaded and extracted {} database", db_info.name);
-                                return Ok(());
-                            }
-                            Err(e) => {
-                                let _ = std::fs::remove_file(&download_path);
-                                log::warn!("Failed to extract 7z from {}: {}", url, e);
-                                last_error = Some(e);
-                                continue;
-                            }
-                        }
-                    } else {
-                        println!("✓ Successfully downloaded {} database", db_info.name);
-                        return Ok(());
-                    }
+                    println!("✓ Successfully downloaded {} database", db_info.name);
+                    return Ok(());
                 }
                 Err(e) => {
                     log::warn!("Failed to download from {}: {}", url, e);
@@ -170,6 +158,33 @@ impl Downloader {
         Err(last_error.unwrap_or_else(|| {
             NaliError::DownloadError(format!("Failed to download database: {}", db_name))
         }))
+    }
+
+    /// Try to download and extract a database file from a URL
+    async fn try_download_and_extract(&self, url: &str, dest_path: &Path, db_name: &str) -> Result<()> {
+        // Check if URL is for a 7z file
+        let is_7z = url.ends_with(".7z");
+
+        // Download to temp file if 7z, otherwise direct to destination
+        let download_path = if is_7z {
+            let temp_dir = std::env::temp_dir();
+            temp_dir.join(format!("{}.7z", db_name))
+        } else {
+            dest_path.to_path_buf()
+        };
+
+        // Download the file
+        self.download_file(url, &download_path, true).await?;
+
+        // Extract if 7z
+        if is_7z {
+            println!("Extracting 7z archive...");
+            self.extract_7z(&download_path, dest_path, db_name).await?;
+            // Clean up temp file
+            let _ = std::fs::remove_file(&download_path);
+        }
+
+        Ok(())
     }
 
     /// Download CDN databases from multiple sources and merge them

@@ -1,7 +1,7 @@
 //! Database manager - manages database instances and caching
 
 use crate::config::AppConfig;
-use crate::database::{Database, DatabaseFactory, DatabaseType, GeoLocation, CdnProvider};
+use crate::database::{CdnProvider, Database, DatabaseFactory, DatabaseType, GeoLocation};
 use crate::download::Downloader;
 use crate::error::{NaliError, Result};
 use std::collections::HashMap;
@@ -9,6 +9,14 @@ use std::net::IpAddr;
 use std::sync::{Arc, RwLock};
 
 /// Database manager handles loading and caching of databases
+///
+/// The manager provides a unified interface for querying IP geolocation and CDN
+/// information. It automatically loads databases on first use and caches both
+/// database instances and query results for improved performance.
+///
+/// # Thread Safety
+///
+/// DatabaseManager is thread-safe and can be shared across threads using Arc.
 pub struct DatabaseManager {
     config: AppConfig,
     /// Cache of loaded databases (name -> database)
@@ -38,7 +46,8 @@ impl DatabaseManager {
     async fn get_or_load_database(&self, name: &str, db_type: DatabaseType) -> Result<()> {
         // Check if already loaded
         {
-            let dbs = self.databases.read().unwrap();
+            let dbs = self.databases.read()
+                .map_err(|e| NaliError::Other(format!("Failed to acquire read lock: {}", e)))?;
             if dbs.contains_key(name) {
                 return Ok(());
             }
@@ -54,28 +63,35 @@ impl DatabaseManager {
 
         // If database file doesn't exist, try to download it automatically
         if !db_path.exists() {
-            log::warn!("Database file not found: {:?}, attempting to download...", db_path);
+            log::warn!(
+                "Database file not found: {:?}, attempting to download...",
+                db_path
+            );
 
             // Only auto-download for known databases (not custom ones)
-            if let Some(db_info) = self.config.database.databases.iter()
-                .find(|db| db.name == name || db.name_alias.contains(&name.to_string())) {
-
+            if let Some(db_info) = self
+                .config
+                .database
+                .databases
+                .iter()
+                .find(|db| db.name == name || db.name_alias.contains(&name.to_string()))
+            {
                 if !db_info.download_urls.is_empty() {
-                    eprintln!("数据库文件不存在，正在自动下载 {} 数据库...", name);
+                    eprintln!("Database file not found, automatically downloading {} database...", name);
 
                     let downloader = Downloader::new()?;
                     downloader.download_database(&self.config, name).await?;
 
-                    eprintln!("✓ 数据库下载完成\n");
+                    eprintln!("✓ Database download complete\n");
                 } else {
                     return Err(NaliError::DatabaseNotFound(format!(
-                        "数据库文件不存在且无法自动下载: {:?}\n提示: 请运行 'nali-rs --update {}' 手动下载",
+                        "Database file not found and cannot be auto-downloaded: {:?}\nHint: Please run 'nali-rs --update {}' to manually download",
                         db_path, name
                     )));
                 }
             } else {
                 return Err(NaliError::DatabaseNotFound(format!(
-                    "数据库文件不存在: {:?}",
+                    "Database file not found: {:?}",
                     db_path
                 )));
             }
@@ -85,7 +101,8 @@ impl DatabaseManager {
         db.load_from_file(db_path.to_str().unwrap())?;
 
         // Store in cache
-        let mut dbs = self.databases.write().unwrap();
+        let mut dbs = self.databases.write()
+            .map_err(|e| NaliError::Other(format!("Failed to acquire write lock: {}", e)))?;
         dbs.insert(name.to_string(), db);
 
         log::info!("Successfully loaded database: {}", name);
@@ -93,11 +110,29 @@ impl DatabaseManager {
     }
 
     /// Query IP geolocation
+    ///
+    /// Looks up geolocation information for the given IP address. The appropriate
+    /// database (IPv4 or IPv6) is automatically selected based on the IP type.
+    ///
+    /// # Arguments
+    ///
+    /// * `ip` - The IP address to query
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(GeoLocation))` - Geolocation information found
+    /// * `Ok(None)` - IP not found in database
+    /// * `Err(NaliError)` - Error occurred during query
+    ///
+    /// # Caching
+    ///
+    /// Query results are cached for improved performance on repeated queries.
     pub async fn query_ip(&self, ip: IpAddr) -> Result<Option<GeoLocation>> {
         // Check cache first
         let cache_key = format!("ip:{}", ip);
         {
-            let cache = self.query_cache.read().unwrap();
+            let cache = self.query_cache.read()
+                .map_err(|e| NaliError::Other(format!("Failed to acquire cache read lock: {}", e)))?;
             if let Some(CachedResult::GeoLocation(result)) = cache.get(&cache_key) {
                 return Ok(result.clone());
             }
@@ -105,8 +140,8 @@ impl DatabaseManager {
 
         // Determine which database to use
         let db_name = match ip {
-            IpAddr::V4(_) => &self.config.database.selected_ipv4,
-            IpAddr::V6(_) => &self.config.database.selected_ipv6,
+            IpAddr::V4(_) => &self.config.database.ipv4_database,
+            IpAddr::V6(_) => &self.config.database.ipv6_database,
         };
 
         let db_type = self.get_database_type(db_name)?;
@@ -116,7 +151,8 @@ impl DatabaseManager {
 
         // Query
         let result = {
-            let dbs = self.databases.read().unwrap();
+            let dbs = self.databases.read()
+                .map_err(|e| NaliError::Other(format!("Failed to acquire database read lock: {}", e)))?;
             if let Some(db) = dbs.get(db_name) {
                 db.lookup_ip(ip)?
             } else {
@@ -126,7 +162,8 @@ impl DatabaseManager {
 
         // Cache result
         {
-            let mut cache = self.query_cache.write().unwrap();
+            let mut cache = self.query_cache.write()
+                .map_err(|e| NaliError::Other(format!("Failed to acquire cache write lock: {}", e)))?;
             cache.insert(cache_key, CachedResult::GeoLocation(result.clone()));
         }
 
@@ -138,13 +175,14 @@ impl DatabaseManager {
         // Check cache first
         let cache_key = format!("cdn:{}", domain);
         {
-            let cache = self.query_cache.read().unwrap();
+            let cache = self.query_cache.read()
+                .map_err(|e| NaliError::Other(format!("Failed to acquire cache read lock: {}", e)))?;
             if let Some(CachedResult::CdnProvider(result)) = cache.get(&cache_key) {
                 return Ok(result.clone());
             }
         }
 
-        let db_name = &self.config.database.selected_cdn;
+        let db_name = &self.config.database.cdn_database;
         let db_type = DatabaseType::CDN;
 
         // Load database if needed
@@ -152,7 +190,8 @@ impl DatabaseManager {
 
         // Query
         let result = {
-            let dbs = self.databases.read().unwrap();
+            let dbs = self.databases.read()
+                .map_err(|e| NaliError::Other(format!("Failed to acquire database read lock: {}", e)))?;
             if let Some(db) = dbs.get(db_name) {
                 db.lookup_cdn(domain)?
             } else {
@@ -162,7 +201,8 @@ impl DatabaseManager {
 
         // Cache result
         {
-            let mut cache = self.query_cache.write().unwrap();
+            let mut cache = self.query_cache.write()
+                .map_err(|e| NaliError::Other(format!("Failed to acquire cache write lock: {}", e)))?;
             cache.insert(cache_key, CachedResult::CdnProvider(result.clone()));
         }
 
@@ -181,7 +221,7 @@ impl DatabaseManager {
             "ip2location" => Ok(DatabaseType::IP2Location),
             "cdn" => Ok(DatabaseType::CDN),
             _ => Err(NaliError::DatabaseNotFound(format!(
-                "未知数据库类型: {}",
+                "Unknown database type: {}",
                 name
             ))),
         }
@@ -189,16 +229,17 @@ impl DatabaseManager {
 
     /// Clear query cache
     pub fn clear_cache(&self) {
-        let mut cache = self.query_cache.write().unwrap();
-        cache.clear();
-        log::info!("Query cache cleared");
+        if let Ok(mut cache) = self.query_cache.write() {
+            cache.clear();
+            log::info!("Query cache cleared");
+        }
     }
 
     /// Get cache statistics
     pub fn cache_stats(&self) -> (usize, usize) {
-        let dbs = self.databases.read().unwrap();
-        let cache = self.query_cache.read().unwrap();
-        (dbs.len(), cache.len())
+        let db_count = self.databases.read().map(|dbs| dbs.len()).unwrap_or(0);
+        let cache_count = self.query_cache.read().map(|cache| cache.len()).unwrap_or(0);
+        (db_count, cache_count)
     }
 }
 

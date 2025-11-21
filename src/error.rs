@@ -8,67 +8,67 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum NaliError {
     /// Database not found
-    #[error("数据库未找到: {0}")]
+    #[error("Database not found: {0}")]
     DatabaseNotFound(String),
 
     /// Invalid IP address
-    #[error("无效的IP地址: {0}")]
+    #[error("Invalid IP address: {0}")]
     InvalidIp(String),
 
     /// Invalid domain name
-    #[error("无效的域名: {0}")]
+    #[error("Invalid domain: {0}")]
     InvalidDomain(String),
 
     /// Database parsing error
-    #[error("数据库解析错误: {0}")]
+    #[error("Database parse error: {0}")]
     ParseError(String),
 
     /// Database not loaded
-    #[error("数据库未加载: {0}")]
+    #[error("Database not loaded: {0}")]
     DatabaseNotLoaded(String),
 
     /// Database corrupted
-    #[error("数据库已损坏: {0}")]
+    #[error("Database corrupted: {0}")]
     DatabaseCorrupted(String),
 
     /// Configuration error
-    #[error("配置错误: {0}")]
+    #[error("Configuration error: {0}")]
     ConfigError(String),
 
     /// Network error
-    #[error("网络错误: {0}")]
+    #[error("Network error: {0}")]
     NetworkError(String),
 
     /// Download error
-    #[error("下载失败: {0}")]
+    #[error("Download failed: {0}")]
     DownloadError(String),
 
     /// File I/O error
-    #[error("文件I/O错误: {0}")]
+    #[error("File I/O error: {0}")]
     IoError(#[from] std::io::Error),
 
     /// Encoding error
-    #[error("编码转换错误: {0}")]
+    #[error("Encoding conversion error: {0}")]
     EncodingError(String),
 
     /// Regex error
-    #[error("正则表达式错误: {0}")]
+    #[error("Regex error: {0}")]
     RegexError(#[from] regex::Error),
 
     /// YAML parsing error
-    #[error("YAML解析错误: {0}")]
+    #[error("YAML parse error: {0}")]
     YamlError(String),
 
     /// JSON parsing error
-    #[error("JSON解析错误: {0}")]
+    #[error("JSON parse error: {0}")]
     JsonError(#[from] serde_json::Error),
 
     /// Index out of bounds
-    #[error("索引越界: offset={0}, size={1}")]
+    #[error("Index out of bounds: offset={0}, size={1}")]
     IndexOutOfBounds(usize, usize),
 
     /// Other error
-    #[error("其他错误: {0}")]
+    #[error("Other error: {0}")]
     Other(String),
 }
 

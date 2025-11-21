@@ -3,7 +3,32 @@
 use crate::entity::types::{Entities, Entity, EntityType};
 use crate::regex::{find_ipv4, find_ipv6, find_domains};
 
-/// Parse a line of text and extract all entities
+/// Parse a line of text and extract all entities (IP addresses and domains)
+///
+/// This function searches for IPv4, IPv6 addresses, and domain names in the input text.
+/// Overlapping entities are removed, keeping the first occurrence.
+///
+/// # Arguments
+///
+/// * `text` - The input text to parse
+///
+/// # Returns
+///
+/// An `Entities` collection containing all found entities, sorted by position
+///
+/// # Performance
+///
+/// Time complexity: O(n) where n is the length of the text
+///
+/// # Example
+///
+/// ```
+/// use nali_rs::entity::parser::parse_line;
+///
+/// let text = "Server IP: 192.168.1.1";
+/// let entities = parse_line(text);
+/// assert_eq!(entities.len(), 1);
+/// ```
 pub fn parse_line(text: &str) -> Entities {
     let mut entities = Entities::new();
 
@@ -40,6 +65,16 @@ pub fn parse_line(text: &str) -> Entities {
 }
 
 /// Parse multiple lines of text
+///
+/// Convenience function that calls `parse_line` for each line.
+///
+/// # Arguments
+///
+/// * `lines` - A slice of strings to parse
+///
+/// # Returns
+///
+/// A vector of `Entities` collections, one for each line
 pub fn parse_lines(lines: &[String]) -> Vec<Entities> {
     lines.iter().map(|line| parse_line(line)).collect()
 }

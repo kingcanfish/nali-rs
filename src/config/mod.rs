@@ -22,16 +22,16 @@ pub struct AppConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
     /// Selected IPv4 database name
-    #[serde(default = "default_ipv4_db")]
-    pub selected_ipv4: String,
+    #[serde(default = "default_ipv4_database_name")]
+    pub ipv4_database: String,
 
     /// Selected IPv6 database name
-    #[serde(default = "default_ipv6_db")]
-    pub selected_ipv6: String,
+    #[serde(default = "default_ipv6_database_name")]
+    pub ipv6_database: String,
 
     /// Selected CDN database name
-    #[serde(default = "default_cdn_db")]
-    pub selected_cdn: String,
+    #[serde(default = "default_cdn_database_name")]
+    pub cdn_database: String,
 
     /// Output language
     #[serde(default = "default_language")]
@@ -39,7 +39,7 @@ pub struct DatabaseConfig {
 
     /// Database file paths (name -> path)
     #[serde(default)]
-    pub paths: HashMap<String, String>,
+    pub database_paths: HashMap<String, String>,
 
     /// Database list configuration
     #[serde(default)]
@@ -95,15 +95,15 @@ pub struct GlobalConfig {
 }
 
 // Default value functions
-fn default_ipv4_db() -> String {
+fn default_ipv4_database_name() -> String {
     env::var("NALI_DB_IP4").unwrap_or_else(|_| "qqwry".to_string())
 }
 
-fn default_ipv6_db() -> String {
+fn default_ipv6_database_name() -> String {
     env::var("NALI_DB_IP6").unwrap_or_else(|_| "zxipv6wry".to_string())
 }
 
-fn default_cdn_db() -> String {
+fn default_cdn_database_name() -> String {
     env::var("NALI_DB_CDN").unwrap_or_else(|_| "cdn".to_string())
 }
 
@@ -128,11 +128,11 @@ impl Default for AppConfig {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            selected_ipv4: default_ipv4_db(),
-            selected_ipv6: default_ipv6_db(),
-            selected_cdn: default_cdn_db(),
+            ipv4_database: default_ipv4_database_name(),
+            ipv6_database: default_ipv6_database_name(),
+            cdn_database: default_cdn_database_name(),
             language: default_language(),
-            paths: HashMap::new(),
+            database_paths: HashMap::new(),
             databases: default_databases(),
         }
     }
@@ -208,10 +208,10 @@ impl AppConfig {
         // Try to load from file
         let mut config = if config_file.exists() {
             let content = fs::read_to_string(&config_file)
-                .map_err(|e| NaliError::config(format!("读取配置文件失败: {}", e)))?;
+                .map_err(|e| NaliError::config(format!("Failed to read config file: {}", e)))?;
 
             serde_yaml::from_str(&content)
-                .map_err(|e| NaliError::YamlError(format!("解析配置文件失败: {}", e)))?
+                .map_err(|e| NaliError::YamlError(format!("Failed to parse config file: {}", e)))?
         } else {
             // Create default config
             let config = Self::default();
@@ -228,13 +228,13 @@ impl AppConfig {
     /// Apply environment variable overrides
     fn apply_env(&mut self) {
         if let Ok(val) = env::var("NALI_DB_IP4") {
-            self.database.selected_ipv4 = val;
+            self.database.ipv4_database = val;
         }
         if let Ok(val) = env::var("NALI_DB_IP6") {
-            self.database.selected_ipv6 = val;
+            self.database.ipv6_database = val;
         }
         if let Ok(val) = env::var("NALI_DB_CDN") {
-            self.database.selected_cdn = val;
+            self.database.cdn_database = val;
         }
         if let Ok(val) = env::var("NALI_LANG") {
             self.database.language = val;
@@ -254,7 +254,7 @@ impl AppConfig {
     /// Get database file path by name
     pub fn get_database_path(&self, name: &str) -> Result<PathBuf> {
         // Check if custom path is configured
-        if let Some(custom_path) = self.database.paths.get(name) {
+        if let Some(custom_path) = self.database.database_paths.get(name) {
             return Ok(path::expand_tilde(custom_path));
         }
 
@@ -277,8 +277,8 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = AppConfig::default();
-        assert_eq!(config.database.selected_ipv4, "qqwry");
-        assert_eq!(config.database.selected_ipv6, "zxipv6wry");
+        assert_eq!(config.database.ipv4_database, "qqwry");
+        assert_eq!(config.database.ipv6_database, "zxipv6wry");
         assert!(config.output.enable_colors);
     }
 

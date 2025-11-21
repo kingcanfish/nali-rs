@@ -68,17 +68,17 @@ impl Cli {
 
         if !self.queries.is_empty() {
             // Query from command line arguments
-            self.query_from_args(&db_manager, &config).await?;
+            self.process_queries_from_args(&db_manager, &config).await?;
         } else {
             // Query from stdin (pipe mode or interactive mode)
-            self.query_from_stdin(&db_manager, &config).await?;
+            self.process_queries_from_stdin(&db_manager, &config).await?;
         }
 
         Ok(())
     }
 
-    /// Query from command line arguments
-    async fn query_from_args(&self, db_manager: &DatabaseManager, config: &AppConfig) -> Result<()> {
+    /// Process queries from command line arguments
+    async fn process_queries_from_args(&self, db_manager: &DatabaseManager, config: &AppConfig) -> Result<()> {
         for query in &self.queries {
             // Try to parse as IP address
             if let Ok(ip) = query.parse::<IpAddr>() {
@@ -91,8 +91,8 @@ impl Cli {
         Ok(())
     }
 
-    /// Query from stdin
-    async fn query_from_stdin(&self, db_manager: &DatabaseManager, config: &AppConfig) -> Result<()> {
+    /// Process queries from stdin (pipe or interactive mode)
+    async fn process_queries_from_stdin(&self, db_manager: &DatabaseManager, config: &AppConfig) -> Result<()> {
         let stdin = io::stdin();
         let mut stdout = io::stdout();
 
@@ -119,8 +119,9 @@ impl Cli {
                 stdout.flush()?;
             }
         } else {
-            // Pipe mode - read from stdin and enrich
-            // Note: We need to preserve line endings to match Go version behavior
+            // Pipe mode - read from stdin and enrich with geolocation info
+            // Note: We preserve line endings to match the original text format
+            // The lines() iterator strips \n, but we need to add them back
             use std::io::Read;
             let mut buffer = String::new();
             stdin.lock().read_to_string(&mut buffer)?;
@@ -148,14 +149,14 @@ impl Cli {
                     if let Some(ip) = entity.as_ip() {
                         if let Ok(Some(geo)) = db_manager.query_ip(ip).await {
                             entity.geo_info = Some(geo);
-                            entity.source = Some(config.database.selected_ipv4.clone());
+                            entity.source = Some(config.database.ipv4_database.clone());
                         }
                     }
                 }
                 EntityType::Domain => {
                     if let Ok(Some(cdn)) = db_manager.query_cdn(&entity.text).await {
                         entity.cdn_info = Some(cdn);
-                        entity.source = Some(config.database.selected_cdn.clone());
+                        entity.source = Some(config.database.cdn_database.clone());
                     }
                 }
                 EntityType::Plain => {}
@@ -182,15 +183,15 @@ impl Cli {
                     let json = serde_json::to_string_pretty(&geo)?;
                     println!("{}", json);
                 } else {
-                    let info = format_geo_location(&geo);
+                    let info = formatter::format_geo_info_compact(&geo);
                     println!("{} -> {}", ip, info);
                 }
             }
             Ok(None) => {
-                println!("{} -> [未找到]", ip);
+                println!("{} -> [Not found]", ip);
             }
             Err(e) => {
-                eprintln!("查询失败: {}", e);
+                eprintln!("Query failed: {}", e);
             }
         }
         Ok(())
@@ -209,7 +210,7 @@ impl Cli {
 
         if self.queries.is_empty() {
             // No specific database specified, update all
-            println!("更新所有数据库...\n");
+            println!("Updating all databases...\n");
             downloader.download_all(config).await?;
         } else {
             // Update specific databases
@@ -217,7 +218,7 @@ impl Cli {
                 match downloader.update_database(config, db_name).await {
                     Ok(_) => {},
                     Err(e) => {
-                        eprintln!("✗ 更新 {} 失败: {}", db_name, e);
+                        eprintln!("✗ Failed to update {}: {}", db_name, e);
                     }
                 }
                 println!();
@@ -225,36 +226,5 @@ impl Cli {
         }
 
         Ok(())
-    }
-}
-
-/// Format geolocation information as a compact string
-fn format_geo_location(geo: &crate::database::GeoLocation) -> String {
-    let mut parts = Vec::new();
-
-    if let Some(ref country) = geo.country {
-        parts.push(country.clone());
-    }
-
-    if let Some(ref region) = geo.region {
-        if Some(region) != geo.country.as_ref() {
-            parts.push(region.clone());
-        }
-    }
-
-    if let Some(ref city) = geo.city {
-        if Some(city) != geo.region.as_ref() {
-            parts.push(city.clone());
-        }
-    }
-
-    if let Some(ref isp) = geo.isp {
-        parts.push(isp.clone());
-    }
-
-    if parts.is_empty() {
-        "[未知]".to_string()
-    } else {
-        parts.join(" ")
     }
 }
